@@ -112,7 +112,7 @@ const cfc=c=>c>=.62?'var(--gr)':c>=.55?'var(--yl)':'var(--tx3)';
 
 function allDates(){return[...new Set(P.map(p=>p.date))].sort();}
 function latestDate(){const d=allDates();return d[d.length-1]||'';}
-function isVoid(p){return p.result==null&&p.date!==latestDate();}
+function isVoid(p){const r=p.result;return r!=='WIN'&&r!=='LOSS';}
 
 function sStats(){
   let g=0,w=0,t1=0,t1w=0,t2=0,t2w=0,tot=0;
@@ -177,9 +177,11 @@ function R(){
   if(di<0)di=0;
   if(di>=dates.length)di=dates.length-1;
   const curDate=dates[di]||'';
-  const _cdGraded=P.filter(p=>p.date===curDate&&(p.result==='WIN'||p.result==='LOSS')).length;
-  const _cdPlays=P.filter(p=>p.date===curDate&&!isVoid(p)).length;
-  const _cdStatus=_cdGraded>0&&_cdGraded>=_cdPlays*0.8?'Completed':'Pre-Match';
+  const _cdAll=P.filter(p=>p.date===curDate);
+  const _cdGraded=_cdAll.filter(p=>p.result==='WIN'||p.result==='LOSS').length;
+  const _cdSkip=_cdAll.filter(p=>p.result==='DNP'||p.result==='NO_PLAY'||p.result==='PUSH').length;
+  const _cdActive=_cdAll.length-_cdSkip;
+  const _cdStatus=_cdGraded>0&&_cdActive>0&&_cdGraded>=_cdActive*0.8?'Completed':'Pre-Match';
   const _cdStatusC=_cdStatus==='Completed'?'var(--gr)':'var(--yl)';
   const totalPlays=DS.reduce((s,d)=>s+d.plays,0);
 const totalGraded=DS.reduce((s,d)=>s+d.graded,0);
@@ -215,35 +217,32 @@ const totalVoid=totalPlays-totalGraded;
     t1:sT1,t1W:sT1W,t2:sT2,t2W:sT2W,t3:sT3,t3W:sT3W,voids:sVoids,
     ovHR:sOvHR,unHR:sUnHR,t1HR:sT1HR,t2HR:sT2HR,t3HR:sT3HR}=_sCache;
   const sHrC=+ss.hr>=55?'var(--gr)':+ss.hr<50?'var(--rd)':'var(--yl)';
-  // Pre-compute season clickable links
-  const _swLnk='<span style="cursor:pointer;border-bottom:'+(fRes==='w'?'1.5px solid var(--gr)':'none')+';opacity:'+(fRes==='l'||fRes==='graded'||fRes==='void'?'.4':'1')+'" onclick="fRes=fRes===\'w\'?\'all\':\'w\';R()">'+ss.w+'W</span>';
-  const _slLnk='<span style="cursor:pointer;border-bottom:'+(fRes==='l'?'1.5px solid var(--rd)':'none')+';opacity:'+(fRes==='w'||fRes==='graded'||fRes==='void'?'.4':'1')+'" onclick="fRes=fRes===\'l\'?\'all\':\'l\';R()">'+ss.l+'L</span>';
-  const _sgrLnk='<span style="cursor:pointer;border-bottom:'+(fRes==='graded'?'1.5px solid var(--bl)':'none')+';color:'+(fRes==='graded'?'var(--bl)':'var(--tx3)')+'" onclick="fRes=fRes===\'graded\'?\'all\':\'graded\';R()">'+sGr.length+' graded</span>';
-  const _svoLnk=sVoids.length?(' &middot; <span style="cursor:pointer;border-bottom:'+(fRes==='void'?'1.5px solid var(--rd)':'none')+';color:'+(fRes==='void'?'var(--rd)':'var(--tx4)')+'" onclick="fRes=fRes===\'void\'?\'all\':\'void\';R()">'+sVoids.length+' void</span>'):'';
+  // Season strip — display only (no filter interactions)
+
   h+=`<div style="background:var(--bg1);border-radius:10px;padding:8px 11px;margin-bottom:10px;border:1px solid var(--bg2)">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-    <span style="font:700 11px var(--M);color:var(--tx2)">${_swLnk} / ${_slLnk}</span>
+    <span style="font:700 11px var(--M);color:var(--tx2)">${ss.w}W / ${ss.l}L</span>
     <span style="font:800 12px var(--M);color:${sHrC}">${ss.hr}% HR</span>
-    <span style="font:400 8px var(--S);color:var(--tx3)">${_sgrLnk}${_svoLnk}</span>
+    <span style="font:400 8px var(--S);color:var(--tx3)">${sGr.length} graded${sVoids.length?" &middot; <span style=\"color:var(--tx4)\">"+sVoids.length+" void</span>":""}</span>
   </div>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px">
-    <div style="text-align:center;background:var(--ovA);border-radius:6px;padding:5px 2px;cursor:pointer;${fDir==='over'&&fRes==='w'?'box-shadow:0 0 0 1.5px var(--ov)':''}" onclick="if(fDir==='over'&&fRes==='w'){fDir='all';fRes='all';}else{fDir='over';fRes='w';}R()">
+    <div style="text-align:center;background:var(--ovA);border-radius:6px;padding:5px 2px">
       <div style="font:700 11px var(--M);color:var(--ov)">${sOvHR}%</div>
       <div style="font:600 6px var(--M);color:var(--tx4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Over ${sOvW}/${sOvG.length}</div>
     </div>
-    <div style="text-align:center;background:var(--unA);border-radius:6px;padding:5px 2px;cursor:pointer;${fDir==='under'&&fRes==='w'?'box-shadow:0 0 0 1.5px var(--un)':''}" onclick="if(fDir==='under'&&fRes==='w'){fDir='all';fRes='all';}else{fDir='under';fRes='w';}R()">
+    <div style="text-align:center;background:var(--unA);border-radius:6px;padding:5px 2px">
       <div style="font:700 11px var(--M);color:var(--un)">${sUnHR}%</div>
       <div style="font:600 6px var(--M);color:var(--tx4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Under ${sUnW}/${sUnG.length}</div>
     </div>
-    <div style="text-align:center;background:var(--grA);border-radius:6px;padding:5px 2px;cursor:pointer;${fTier==='1'&&fRes==='w'?'box-shadow:0 0 0 1.5px var(--gr)':''}" onclick="if(fTier==='1'&&fRes==='w'){fTier='all';fRes='all';}else{fTier='1';fRes='w';fDir='all';}R()">
+    <div style="text-align:center;background:var(--grA);border-radius:6px;padding:5px 2px">
       <div style="font:700 11px var(--M);color:var(--gr)">${sT1HR}%</div>
       <div style="font:600 6px var(--M);color:var(--tx4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">T1 ${sT1W}/${sT1.length}</div>
     </div>
-    <div style="text-align:center;background:var(--ylA);border-radius:6px;padding:5px 2px;cursor:pointer;${fTier==='2'&&fRes==='w'?'box-shadow:0 0 0 1.5px var(--yl)':''}" onclick="if(fTier==='2'&&fRes==='w'){fTier='all';fRes='all';}else{fTier='2';fRes='w';fDir='all';}R()">
+    <div style="text-align:center;background:var(--ylA);border-radius:6px;padding:5px 2px">
       <div style="font:700 11px var(--M);color:var(--yl)">${sT2HR}%</div>
       <div style="font:600 6px var(--M);color:var(--tx4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">T2 ${sT2W}/${sT2.length}</div>
     </div>
-    <div style="text-align:center;background:rgba(148,163,184,.07);border-radius:6px;padding:5px 2px;cursor:pointer;${fTier==='3'&&fRes==='w'?'box-shadow:0 0 0 1.5px var(--tx2)':''}" onclick="if(fTier==='3'&&fRes==='w'){fTier='all';fRes='all';}else{fTier='3';fRes='w';fDir='all';}R()">
+    <div style="text-align:center;background:rgba(148,163,184,.07);border-radius:6px;padding:5px 2px">
       <div style="font:700 11px var(--M);color:var(--tx2)">${sT3HR}%</div>
       <div style="font:600 6px var(--M);color:var(--tx4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">T3 ${sT3W}/${sT3.length}</div>
     </div>
@@ -405,7 +404,9 @@ function renderDaily(dates,curDate){
   // Build sorted match options from valid plays
   const matchMap={};
   valid.forEach(p=>{if(!matchMap[p.match]||p.gameTime<matchMap[p.match])matchMap[p.match]=p.gameTime;});
-  const sortedM=Object.entries(matchMap).sort((a,b)=>(a[1]||'ZZ').localeCompare(b[1]||'ZZ'));
+  function _tMin(s){if(!s)return 9999;const m=s.match(/(\d+):(\d+)\s*(AM|PM)/i);if(!m)return 9999;
+    let h=+m[1],n=+m[2];if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;if(m[3].toUpperCase()==='AM'&&h===12)h=0;return h*60+n;}
+  const sortedM=Object.entries(matchMap).sort((a,b)=>{const d=_tMin(a[1])-_tMin(b[1]);return d!==0?d:a[0].localeCompare(b[0]);});
 
   // Filter bar
   h+=`<div class="fbar">`;
@@ -525,12 +526,13 @@ function renderLeaders(){
   const byP={};
   P.forEach(p=>{
     if(!['WIN','LOSS'].includes(p.result))return;
-    if(!byP[p.player])byP[p.player]={name:p.player,plays:0,wins:0,t1:0,t2:0,t3:0};
+    if(!byP[p.player])byP[p.player]={name:p.player,team:p.team||'',plays:0,wins:0,t1:0,t2:0,t3:0};
     byP[p.player].plays++;
     if(p.result==='WIN')byP[p.player].wins++;
     if(p.tier===1)byP[p.player].t1++;
     else if(p.tier===2)byP[p.player].t2++;
     else byP[p.player].t3++;
+    if(!byP[p.player].team&&p.team)byP[p.player].team=p.team;
   });
   const ldrs=Object.values(byP).filter(x=>x.wins>=5).sort((a,b)=>(b.wins/b.plays)-(a.wins/a.plays)).slice(0,25);
   h+=`<div style="font:600 7px var(--M);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Top 25 HR Leaders &middot; All Tiers &middot; Min 5 Wins</div>`;
